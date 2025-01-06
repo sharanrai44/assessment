@@ -28,7 +28,7 @@ services:
 
   apigateway:
     build:
-      context: .\api-gateway
+      context: .\apigateway
       dockerfile: Dockerfile
     container_name: apigateway
     ports:
