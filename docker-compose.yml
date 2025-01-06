@@ -1,0 +1,91 @@
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysqlinstance
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=onlineshop
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    networks:
+      - app-network
+
+  namingserver:
+    build:
+      context: .\namingserver
+      dockerfile: Dockerfile
+    container_name: namingserver
+    ports:
+      - 8761:8761
+    networks:
+      - app-network
+
+  apigateway:
+    build:
+      context: .\api-gateway
+      dockerfile: Dockerfile
+    container_name: apigateway
+    ports:
+      - 8765:8765
+    depends_on:
+      - namingserver
+    environment:
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - app-network
+
+  userservice:
+    build:
+      context: .\userservice
+      dockerfile: Dockerfile
+    container_name: userservice
+    ports:
+      - 8081:8081
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysqlinstance:3306/onlineshop
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+      - SPRING_SLEUTH_SAMPLERATE=1.0
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+
+  productservice:
+    build:
+      context: .\productservice
+      dockerfile: Dockerfile
+    container_name: productservice
+    ports:
+      - 8080:8080
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/shopping_db
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+      - SPRING_SLEUTH_SAMPLERATE=1.0
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - 9411:9411
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
